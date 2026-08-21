@@ -1,11 +1,8 @@
 import os
-import asyncio
 import threading
 
 from flask import Flask
 from pyrogram import Client, filters
-from pytgcalls import PyTgCalls
-from pytgcalls.types import MediaStream
 
 
 # =========================
@@ -15,7 +12,6 @@ from pytgcalls.types import MediaStream
 API_ID = int(os.environ["API_ID"])
 API_HASH = os.environ["API_HASH"]
 BOT_TOKEN = os.environ["BOT_TOKEN"]
-SESSION_STRING = os.environ["SESSION_STRING"]
 
 
 # =========================
@@ -32,6 +28,7 @@ def home():
 
 def run_web():
     port = int(os.environ.get("PORT", 10000))
+
     web_app.run(
         host="0.0.0.0",
         port=port
@@ -39,7 +36,7 @@ def run_web():
 
 
 # =========================
-# TELEGRAM CLIENTS
+# TELEGRAM BOT
 # =========================
 
 bot = Client(
@@ -49,108 +46,62 @@ bot = Client(
     bot_token=BOT_TOKEN
 )
 
-user = Client(
-    "saksham_music_assistant",
-    api_id=API_ID,
-    api_hash=API_HASH,
-    session_string=SESSION_STRING,
-    in_memory=True
-)
-
-calls = PyTgCalls(user)
-
 
 # =========================
-# COMMANDS
+# START COMMAND
 # =========================
 
 @bot.on_message(filters.command("start"))
 async def start_command(client, message):
+
+    print(f"Received /start from {message.from_user.id}")
+
     await message.reply_text(
         "🎵 Welcome to Saksham Music Bot!\n\n"
-        "Use:\n"
-        "/play <audio URL>\n\n"
-        "Example:\n"
-        "/play https://example.com/song.mp3"
+        "✅ Bot is online and working!\n\n"
+        "Music features will be added next."
     )
 
 
-@bot.on_message(filters.command("play"))
-async def play_command(client, message):
+# =========================
+# TEST MESSAGE
+# =========================
 
-    if len(message.command) < 2:
-        await message.reply_text(
-            "❌ Usage:\n"
-            "/play <audio URL>"
-        )
-        return
+@bot.on_message(filters.text & ~filters.command(["start"]))
+async def test_message(client, message):
 
-    if not message.chat.id:
-        return
+    print(
+        f"Received message from "
+        f"{message.from_user.id}: {message.text}"
+    )
 
-    audio_url = message.text.split(
-        None,
-        1
-    )[1]
-
-    try:
-        await message.reply_text(
-            "🎵 Starting music..."
-        )
-
-        await calls.play(
-            message.chat.id,
-            MediaStream(audio_url)
-        )
-
-        await message.reply_text(
-            "▶️ Music started in voice chat!"
-        )
-
-    except Exception as error:
-        await message.reply_text(
-            f"❌ Error:\n{error}"
-        )
-
-
-@bot.on_message(filters.command("stop"))
-async def stop_command(client, message):
-
-    try:
-        await calls.leave_call(
-            message.chat.id
-        )
-
-        await message.reply_text(
-            "⏹ Music stopped!"
-        )
-
-    except Exception as error:
-        await message.reply_text(
-            f"❌ Error:\n{error}"
-        )
+    await message.reply_text(
+        "🎵 Saksham Music Bot is online!\n\n"
+        "Your message was received successfully. ✅"
+    )
 
 
 # =========================
 # MAIN
 # =========================
 
-async def main():
+def main():
 
-    await bot.start()
-
-    await calls.start()
-
-    print("🎵 SAKSHAM MUSIC BOT IS RUNNING!")
-
-    await asyncio.Event().wait()
-
-
-if __name__ == "__main__":
-
+    # Start Flask for Render
     threading.Thread(
         target=run_web,
         daemon=True
     ).start()
 
-    asyncio.run(main())
+    print("===================================")
+    print("🎵 SAKSHAM MUSIC BOT")
+    print("===================================")
+    print("✅ Starting Telegram bot...")
+    print("===================================")
+
+    # Start Telegram bot
+    bot.run()
+
+
+if __name__ == "__main__":
+    main()
