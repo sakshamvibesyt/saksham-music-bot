@@ -1,8 +1,10 @@
 import os
+import asyncio
 import threading
 
 from flask import Flask
 from pyrogram import Client, filters
+from pytgcalls import PyTgCalls
 
 
 # =========================
@@ -12,10 +14,11 @@ from pyrogram import Client, filters
 API_ID = int(os.environ["API_ID"])
 API_HASH = os.environ["API_HASH"]
 BOT_TOKEN = os.environ["BOT_TOKEN"]
+SESSION_STRING = os.environ["SESSION_STRING"]
 
 
 # =========================
-# FLASK SERVER FOR RENDER
+# FLASK SERVER
 # =========================
 
 web_app = Flask(__name__)
@@ -48,36 +51,48 @@ bot = Client(
 
 
 # =========================
-# START COMMAND
+# USER SESSION
+# =========================
+
+user = Client(
+    "saksham_music_assistant",
+    api_id=API_ID,
+    api_hash=API_HASH,
+    session_string=SESSION_STRING
+)
+
+
+# =========================
+# PYTGCALLS
+# =========================
+
+calls = PyTgCalls(user)
+
+
+# =========================
+# START
 # =========================
 
 @bot.on_message(filters.command("start"))
 async def start_command(client, message):
 
-    print(f"Received /start from {message.from_user.id}")
-
     await message.reply_text(
         "🎵 Welcome to Saksham Music Bot!\n\n"
-        "✅ Bot is online and working!\n\n"
-        "Music features will be added next."
+        "✅ Bot is online!\n"
+        "🎧 Music system is starting..."
     )
 
 
 # =========================
-# TEST MESSAGE
+# PLAY TEST
 # =========================
 
-@bot.on_message(filters.text & ~filters.command(["start"]))
-async def test_message(client, message):
-
-    print(
-        f"Received message from "
-        f"{message.from_user.id}: {message.text}"
-    )
+@bot.on_message(filters.command("play"))
+async def play_command(client, message):
 
     await message.reply_text(
-        "🎵 Saksham Music Bot is online!\n\n"
-        "Your message was received successfully. ✅"
+        "🎵 Music command received!\n\n"
+        "Song playback system will start next."
     )
 
 
@@ -85,23 +100,32 @@ async def test_message(client, message):
 # MAIN
 # =========================
 
-def main():
+async def main():
 
-    # Start Flask for Render
     threading.Thread(
         target=run_web,
         daemon=True
     ).start()
 
     print("===================================")
-    print("🎵 SAKSHAM MUSIC BOT")
-    print("===================================")
-    print("✅ Starting Telegram bot...")
+    print("🎵 SAKSHAM MUSIC BOT STARTING")
     print("===================================")
 
-    # Start Telegram bot
-    bot.run()
+    await bot.start()
+
+    print("✅ Telegram Bot Started")
+
+    await user.start()
+
+    print("✅ Assistant Session Started")
+
+    await calls.start()
+
+    print("✅ PyTgCalls Started")
+    print("🎵 MUSIC SYSTEM READY!")
+
+    await asyncio.Event().wait()
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
