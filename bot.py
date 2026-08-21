@@ -1,23 +1,48 @@
+```python
 import os
-import asyncio
 import threading
-from urllib.parse import quote_plus
 
 from flask import Flask
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Application, CommandHandler, ContextTypes
+from pyrogram import Client, filters
+from pytgcalls import PyTgCalls, idle
+from pytgcalls.types import MediaStream
 
 
 # =========================
-# BOT TOKEN
+# ENVIRONMENT VARIABLES
 # =========================
 
+API_ID = int(os.environ["API_ID"])
+API_HASH = os.environ["API_HASH"]
 BOT_TOKEN = os.environ["BOT_TOKEN"]
+SESSION_STRING = os.environ["SESSION_STRING"]
 
 
 # =========================
-# FLASK WEB SERVER
-# Render Web Service ke liye
+# TELEGRAM CLIENTS
+# =========================
+
+bot = Client(
+    "saksham_music_bot",
+    api_id=API_ID,
+    api_hash=API_HASH,
+    bot_token=BOT_TOKEN,
+    in_memory=True
+)
+
+assistant = Client(
+    "saksham_music_assistant",
+    api_id=API_ID,
+    api_hash=API_HASH,
+    session_string=SESSION_STRING,
+    in_memory=True
+)
+
+calls = PyTgCalls(assistant)
+
+
+# =========================
+# RENDER WEB SERVER
 # =========================
 
 web_app = Flask(__name__)
@@ -25,7 +50,7 @@ web_app = Flask(__name__)
 
 @web_app.route("/")
 def home():
-    return "🎵 SAKSHAM MUSIC BOT IS RUNNING! 🤖"
+    return "SAKSHAM MUSIC VC BOT IS RUNNING!"
 
 
 @web_app.route("/health")
@@ -44,144 +69,108 @@ def run_web_server():
 
 
 # =========================
-# /start
+# START COMMAND
 # =========================
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+@bot.on_message(filters.command("start"))
+async def start_command(_, message):
 
-    keyboard = [
-        [
-            InlineKeyboardButton(
-                "🎵 SEARCH SONG",
-                callback_data="search_info"
-            )
-        ],
-        [
-            InlineKeyboardButton(
-                "▶️ YOUTUBE",
-                url="https://www.youtube.com/"
-            )
-        ]
-    ]
-
-    reply_markup = InlineKeyboardMarkup(keyboard)
-
-    await update.message.reply_text(
-        "╔══════════════════════╗\n"
-        "     🎵 SAKSHAM MUSIC BOT 🎵\n"
-        "╚══════════════════════╝\n\n"
-        "✨ Welcome to Saksham Music Bot!\n\n"
-        "🎧 Song search karne ke liye:\n\n"
-        "▶️ /play <song name>\n\n"
+    await message.reply_text(
+        "🎵 **SAKSHAM VC MUSIC BOT**\n\n"
+        "Commands:\n\n"
+        "▶️ /play <authorized_audio_url>\n"
+        "⏸ /pause\n"
+        "▶️ /resume\n"
+        "⏹ /stop\n\n"
         "Example:\n"
-        "/play Arijit Singh\n\n"
-        "🔥 Fast • Simple • Music\n"
-        "🎶 Enjoy your music!",
-        reply_markup=reply_markup
+        "`/play https://example.com/audio.mp3`"
     )
 
 
 # =========================
-# /play
+# PLAY
 # =========================
 
-async def play(update: Update, context: ContextTypes.DEFAULT_TYPE):
+@bot.on_message(filters.command("play") & filters.group)
+async def play_command(_, message):
 
-    if not context.args:
-
-        await update.message.reply_text(
-            "❌ Song name missing!\n\n"
+    if len(message.command) < 2:
+        await message.reply_text(
+            "❌ Audio URL do.\n\n"
             "Example:\n"
-            "/play Tum Hi Ho"
+            "`/play https://example.com/audio.mp3`"
         )
-
         return
 
-    song_name = " ".join(context.args)
-
-    search_query = quote_plus(song_name)
-
-    youtube_url = (
-        "https://www.youtube.com/results?search_query="
-        + search_query
-    )
-
-    keyboard = [
-        [
-            InlineKeyboardButton(
-                "▶️ SEARCH ON YOUTUBE",
-                url=youtube_url
-            )
-        ]
-    ]
-
-    reply_markup = InlineKeyboardMarkup(keyboard)
-
-    await update.message.reply_text(
-        f"🎵 Song: {song_name}\n\n"
-        "🔎 YouTube search ready!\n"
-        "👇 Button dabakar song dekho:",
-        reply_markup=reply_markup
-    )
-
-
-# =========================
-# /help
-# =========================
-
-async def help_command(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE
-):
-
-    await update.message.reply_text(
-        "🎵 SAKSHAM MUSIC BOT\n\n"
-        "📌 Commands:\n\n"
-        "/start - Start bot\n"
-        "/play <song> - Search song\n"
-        "/help - Help\n\n"
-        "Example:\n"
-        "/play Kesariya"
-    )
-
-
-# =========================
-# TELEGRAM BOT
-# =========================
-
-async def run_bot():
-
-    app = Application.builder().token(BOT_TOKEN).build()
-
-    app.add_handler(
-        CommandHandler("start", start)
-    )
-
-    app.add_handler(
-        CommandHandler("play", play)
-    )
-
-    app.add_handler(
-        CommandHandler("help", help_command)
-    )
-
-    print("🎵 SAKSHAM MUSIC BOT IS RUNNING...")
-
-    await app.initialize()
-
-    await app.start()
-
-    await app.updater.start_polling()
+    media_url = message.text.split(None, 1)[1].strip()
+    chat_id = message.chat.id
 
     try:
-        while True:
-            await asyncio.sleep(3600)
+        await calls.play(
+            chat_id,
+            MediaStream(media_url)
+        )
 
-    finally:
+        await message.reply_text(
+            "🎵 **Playing in Voice Chat!**\n\n"
+            f"🔗 Source: {media_url}"
+        )
 
-        await app.updater.stop()
-        await app.stop()
-        await app.shutdown()
+    except Exception as error:
+        await message.reply_text(
+            f"❌ Play error:\n`{error}`"
+        )
+
+
+# =========================
+# PAUSE
+# =========================
+
+@bot.on_message(filters.command("pause") & filters.group)
+async def pause_command(_, message):
+
+    try:
+        await calls.pause(message.chat.id)
+        await message.reply_text("⏸ Music paused.")
+
+    except Exception as error:
+        await message.reply_text(
+            f"❌ Error:\n`{error}`"
+        )
+
+
+# =========================
+# RESUME
+# =========================
+
+@bot.on_message(filters.command("resume") & filters.group)
+async def resume_command(_, message):
+
+    try:
+        await calls.resume(message.chat.id)
+        await message.reply_text("▶️ Music resumed.")
+
+    except Exception as error:
+        await message.reply_text(
+            f"❌ Error:\n`{error}`"
+        )
+
+
+# =========================
+# STOP
+# =========================
+
+@bot.on_message(filters.command("stop") & filters.group)
+async def stop_command(_, message):
+
+    try:
+        await calls.leave_call(message.chat.id)
+        await message.reply_text("⏹ Music stopped and left VC.")
+
+    except Exception as error:
+        await message.reply_text(
+            f"❌ Error:\n`{error}`"
+        )
 
 
 # =========================
@@ -190,17 +179,21 @@ async def run_bot():
 
 def main():
 
-    # Start Render web server
-    web_thread = threading.Thread(
+    # Start Flask server for Render
+    threading.Thread(
         target=run_web_server,
         daemon=True
-    )
+    ).start()
 
-    web_thread.start()
+    # Start bot + assistant + voice calls
+    bot.start()
+    calls.start()
 
-    # Start Telegram bot
-    asyncio.run(run_bot())
+    print("🎵 SAKSHAM VC MUSIC BOT IS RUNNING...")
+
+    idle()
 
 
 if __name__ == "__main__":
     main()
+```
