@@ -1,2 +1,4 @@
-python-telegram-bot>=22.0,<23
-Flask>=3.0,<4
+pyrogram
+tgcrypto
+py-tgcalls
+yt-dlp
