@@ -1,4 +1,4 @@
 pyrogram==2.0.106
-py-tgcalls>=2.2.4
-Flask
-TgCrypto
+pytgcalls==2.2.0
+tgcrypto
+flask
